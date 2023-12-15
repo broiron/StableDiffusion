@@ -12,6 +12,9 @@ class VAE_Encoder(nn.Sequential):
         이런 식의 모델 설계는 다른 코드와 호완성이 좋음
         기존의 autoencoder의 코드 구조와 유사하기 때문.
         픽셀의 개수는 줄어들지만, 각 픽셀을 표현하는 채널들의 수가 더 많아지는 구조
+
+        본 코드는 image가 encoder를 통과하고, latent space에서
+        latent를 sampling하는 코드임.
         '''
 
         super().__init__(
@@ -71,7 +74,7 @@ class VAE_Encoder(nn.Sequential):
             nn.Conv2d(512, 8, kernel_size=3, padding=1),
             # (batch_size, 8, h / 8, w / 8)
             nn.Conv2d(8, 8, kernel_size=1, padding=0)
-        )
+    )
 
     def forward(self, x: torch.Tensor, noise: torch.Tensor) -> torch.Tensor:
         # x : (batch size, channel, height, width)
@@ -104,6 +107,13 @@ class VAE_Encoder(nn.Sequential):
         # 표준 정규분포를 따르는 latent noise에서
 
         x = mean + stdev * noise
+
+        # 마지막으로 scaling을 해 줘야함, 상수를 곱함
+        # 설명하는 얘도 모름
+        x *= 0.18215
+
+        return x
+
 
 
 
