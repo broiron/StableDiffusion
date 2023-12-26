@@ -102,7 +102,7 @@ class VAE_Decoder(nn.Sequential):
 
             # 이미지의 해상도를 높이는 과정
             # (Batch_size, 512, 512, Height / 8, Width / 8) -> (Batch_size, 512, 512, Height / 4, Width / 4) 
-            nn.Upsample(scale_factor=2)
+            nn.Upsample(scale_factor=2),
 
             nn.Conv2d(512, 512, kernel_size=3, padding=1),
             VAE_ResidualBlock(512, 512),
@@ -124,14 +124,14 @@ class VAE_Decoder(nn.Sequential):
             VAE_ResidualBlock(128, 128),
             VAE_ResidualBlock(128, 128),
             
-            nn.GroupNorm(32, 128) # 128개의 channel을 32개씩 묶어서 4개의 group을 만듬
+            nn.GroupNorm(32, 128), # 128개의 channel을 32개씩 묶어서 4개의 group을 만듬
 
             nn.SiLU(),
             # 원래 이미지로 복기
             nn.Conv2d(128, 3, kernel_size=3, padding=1)
         )
 
-    def forward(self, x: torch.Tensor) ->  torch.Tensor:
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
         # x: (batch_size, 4, Height / 8, Width / 8)
 
         x /= 0.18215 
