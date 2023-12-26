@@ -14,9 +14,10 @@ class SelfAttention(nn.Module):
 
         self.n_heads = n_heads
         # d_embedding이 d_head로 나누어진다..?
+        # multi head가 기존 embedding 차원을 늘리는 게 아니라, head개수 만큼 나눠서 병렬적으로 처리하는 것.
         self.d_head = d_embed // n_heads
 
-    def foward(self, x:torch.Tensor, causal_mask=False):
+    def forward(self, x:torch.Tensor, causal_mask=False):
         # causal_mask: 목표하는 문장의 일부를 가려서 인위적으로 연속성을 학습하도록 함.
         # x: (Batch_size, Seq_len, Dim)
 
@@ -44,7 +45,7 @@ class SelfAttention(nn.Module):
         
         weight /= math.sqrt(self.d_head)
 
-        weight = F.softmax(weight, dim = -1)
+        weight = F.softmax(weight, dim=-1)
 
         # (Batch_size, H, Seq_Len, Seq_Len) @ (Batch_size, H, Seq_Len, Dim/H) -> (Batch_size, H, Seq_Len, Dim / H)
         output = weight @ v
@@ -59,6 +60,47 @@ class SelfAttention(nn.Module):
         # (batch_size, Seq_len, Dim)
         return output
 
-        
 
+class CrossAttention(nn.Module):
+    def __init__(self, n_heads, d_embed, d_cross, in_proj_bias=True, out_proj_bias=True):
+        super().__init__()
+        # query, key, value를 각각 정의
+        # query는 그대로 동일
+        # key와 value에 cross할 embedding 입력
+        self.q_proj = nn.Linear(d_embed, d_embed, bias=in_proj_bias)
+        self.k_proj = nn.Linear(d_cross, d_embed, bias=in_proj_bias)
+        self.v_proj = nn.Linear(d_cross, d_embed, bias=in_proj_bias)
+        self.out_proj = nn.Linear(d_embed, d_embed, bias=out_proj_bias)
+        self.n_heads = n_heads
+        self.d_head = d_embed // n_heads
 
+    def forward(self, x, y):
+        # x (latent): (batch_size, seq_len_Q, dim_Q)
+        # y (context): (batch_size, seq_len_KV, dim_KV) = (batch_Size, 77, 768) -> clip embedding 출력
+        input_shape = x.shape
+        batch_size, sequence_length, d_embed = input_shape
+
+        # multihead attention을 위해 q의 차원을 dim_heads * n_heads = dim_q 되도록 나누어줌
+        interim_shape = (batch_size, -1, self.n_heads, self.d_head)
+
+        # latent를 query에, key랑 value에는 context가 들어감.
+        q = self.q_proj(x)
+        k = self.k_proj(y)
+        v = self.v_proj(y)
+
+        q = q.view(interim_shape).transpose(1, 2)
+        k = k.view(interim_shape).transpose(1, 2)
+        v = v.view(interim_shape).transpose(1, 2)
+
+        weight = q @ k.transpose(-1, -2)
+        weight /= math.sqrt(self.d_head)
+
+        weight = F.softmax(weight, dim=-1)
+
+        output = weight @ v
+
+        output = output.transpose(1, 2).contiguous() # contiguous: 강제로 메모리를 할당해서 output 을 위한 공간을 따로 만들어 줌.
+        output = output.view(input_shape)
+
+        output = self.out_proj(output)
+        return output
