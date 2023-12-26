@@ -29,7 +29,7 @@ class VAE_Encoder(nn.Sequential):
 
             # height, width 변경
             # (batch_size, 128, height, width) -> (batch_size, 128, h/2, w/2)
-            nn.Conv2d(128, 128, kernel_size=3, stride=2, padding=0)
+            nn.Conv2d(128, 128, kernel_size=3, stride=2, padding=0),
 
             # (batch_size, 128, h / 2, w / 2) -> (batch_size, 256, h/2, w/2)
             VAE_ResidualBlock(128, 256),
